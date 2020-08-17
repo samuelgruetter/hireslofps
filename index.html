@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <script>
+      function I(name) {
+        return document.getElementById(name);
+      }
+
+      function capture() {
+        I('canvas').getContext('2d').drawImage(player, 0, 0, I('canvas').width, I('canvas').height);
+      }
+
+      function openCamera() {
+        const desiredWidth = I('widthInput').value;
+        const desiredHeight = I('heightInput').value;
+        const constraints = { 
+          video: { facingMode: "environment", width: desiredWidth, height: desiredHeight }
+        };
+        navigator.mediaDevices.getUserMedia(constraints)
+          .then(stream => {
+            const s = stream.getVideoTracks()[0].getSettings();
+            console.log(`Got ${s.width} x ${s.height} video`);
+            I('player').srcObject = stream;
+          })
+          .catch(error => {
+            if (error instanceof OverconstrainedError) {
+              alert(`Error: ${desiredWidth} x ${desiredHeight} camera input not available`);
+            } else {
+              throw error;
+            }
+          });
+      }
+
+      function closeCamera() {
+        I('player').srcObject.getVideoTracks().forEach(track => track.stop());
+      }
+
+      function test() {
+        alert('hi');
+      }
+    </script>
+  </head>
+  <body>
+    <input type="number" value="1600" id="widthInput"></input>
+    x
+    <input type="number" value="900" id="heightInput"></input>
+    <button id="openCameraButton" onclick="openCamera()">Open Camera</button>
+    <button id="closeCameraButton" onclick="closeCamera()">Close Camera</button>
+    <button id="captureButton" onclick="capture()">Capture</button>
+    <video id="player" controls autoplay></video>
+    <canvas id="canvas" width=320 height=240></canvas>
+  </body>
+</html>
