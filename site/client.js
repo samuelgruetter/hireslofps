@@ -15,7 +15,7 @@ function init() {
 
     const conn = peer.connect(meetingId, {
       reliable: true,
-      serialization: 'json'
+      serialization: 'binary'
     });
 
     function request() {
