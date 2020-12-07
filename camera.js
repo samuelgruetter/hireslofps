@@ -1,17 +1,30 @@
 'use strict';
 
-function openCamera(frameRate) {
+let isCameraOpen = false;
+
+const toggle = withErrLog(() => {
+  if (isCameraOpen) {
+    closeCamera();
+    I("openCameraButton").innerHTML = "Open Camera";
+  } else {
+    init();
+    I("openCameraButton").innerHTML = "Close Camera";
+  }
+});
+
+function openCamera(frameRate, w, h) {
   const constraints = {
-    video: { facingMode: "environment", width: 4096, height: 4096, frameRate: frameRate }
+    video: { facingMode: "environment", width: w, height: h, frameRate: frameRate }
   };
   navigator.mediaDevices.getUserMedia(constraints)
-    .then(stream => {
+    .then(withErrLog(stream => {
       const s = stream.getVideoTracks()[0].getSettings();
-      I('resolutionP').innerText = `Camera resolution is ${s.width} x ${s.height} @ ${s.frameRate}fps`;
+      log(`Camera resolution is ${s.width} x ${s.height} @ ${s.frameRate}fps`);
       I('canvas').width = s.width;
       I('canvas').height = s.height;
       I('player').srcObject = stream;
-    });
+      isCameraOpen = true;
+    }));
 }
 
 var destroyPeerJS = null;
@@ -19,32 +32,41 @@ var destroyPeerJS = null;
 function closeCamera() {
   if (destroyPeerJS) destroyPeerJS();
   I('player').srcObject.getVideoTracks().forEach(track => track.stop());
+  isCameraOpen = false;
 }
 
-function sendImg(conn) {
+function sendImg(conn, quality) {
   I('canvas').getContext('2d').drawImage(player, 0, 0, I('canvas').width, I('canvas').height);
-  I('canvas').toBlob(blob => {
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      const msg = {
-        type: "img",
-        width: I('canvas').width,
-        height: I('canvas').height,
-        base64: reader.result
-      };
-      console.log(msg.base64.length);
-      conn.send(msg);
+  I('canvas').toBlob(withErrLog(blob => {
+    const msg = {
+      type: "img",
+      width: I('canvas').width,
+      height: I('canvas').height,
+      blob: blob
     };
-    reader.readAsDataURL(blob); 
-  }, 'image/jpeg', 0.9);
+    conn.send(msg);
+  }), 'image/jpeg', quality || 0.5);
 }
 
 function makeClientLink(meetingId) {
-  return `${window.location.protocol}//${window.location.host}/client.html?meetingId=${meetingId}`;
+  return `${window.location.protocol}//${window.location.host}/${window.location.pathname.replace("camera.html", "client.html")}?meetingId=${meetingId}`;
 }
 
 function log(msg) {
-  I('log').value += '\n' + msg;
+  I("log").innerText += '\n' + msg;
+  I("rightHalf").scrollTop = I("rightHalf").scrollHeight;
+}
+
+function withErrLog(f) {
+  return function (...args) {
+    try { return f(...args); }
+    catch (e) { 
+      log("Error:");
+      log(e.toString());
+      log(e.stack.toString());
+      throw e;
+    }
+  };
 }
 
 function initPeerJs(meetingId) {
@@ -55,7 +77,8 @@ function initPeerJs(meetingId) {
 
   peer.on('open', (id) => {
     log('Connected to PeerJS server');
-    I('linkToShare').innerText = makeClientLink(id);
+    log('Share the following link with attendees:');
+    log(makeClientLink(id));
   });
 
   var nextFreeClientId = 1; // 0 is ourselves
@@ -72,7 +95,7 @@ function initPeerJs(meetingId) {
 
     conn.on('data', (msg) => {
       if (msg.action === 'GetImg') {
-        sendImg(conn);
+        sendImg(conn, msg.quality ? Number.parseFloat(msg.quality) : 0.5);
       }
     });
 
@@ -99,6 +122,8 @@ function init() {
   const meetingId = urlParams.get("meetingId");
   const frameLengthTry = parseFloat(urlParams.get("frameLength"));
   const frameLength = Number.isFinite(frameLengthTry) && frameLengthTry > 0 ? frameLengthTry : 5.0;
-  openCamera(1.0 / frameLength);
+  const w = parseInt(urlParams.get("w")) || 1920;
+  const h = parseInt(urlParams.get("h")) || 1080;
+  openCamera(1.0 / frameLength, w, h);
   initPeerJs(meetingId);
 }

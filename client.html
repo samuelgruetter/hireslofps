@@ -4,11 +4,17 @@
     <script src="common.js"></script>
     <script src="client.js"></script>
     <script src="https://unpkg.com/peerjs@1.3.1/dist/peerjs.min.js"></script>
-    <title>Camera sharing</title>
+    <title>Watch that high-res camera!</title>
+    <style>
+      * {
+          margin: 0;
+          padding: 0;
+      }
+    </style>
   </head>
   <body onload="init()">
-    <div>
-      <!-- blank image -->
+    <div class="imgbox">
+      <!-- blank image to start -->
       <img id="cameraImg" src="data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs=" style="width:100%" alt="" />
     </div>
   </body>
